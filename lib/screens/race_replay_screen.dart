@@ -77,6 +77,8 @@ class _SelectorRow extends StatelessWidget {
   }
 
   Widget _buildMeetingDropdown() {
+    final selected = provider.selectedMeeting;
+    final value = provider.availableMeetings.contains(selected) ? selected : null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -89,7 +91,7 @@ class _SelectorRow extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<dynamic>(
-          value: provider.selectedMeeting,
+          value: value,
           isExpanded: true,
           dropdownColor: AppTheme.cardSurface,
           icon: Icon(
