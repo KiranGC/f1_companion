@@ -508,6 +508,12 @@ class RaceReplayProvider extends ChangeNotifier {
       final locations = entry.value;
       if (locations.isEmpty) continue;
 
+      // Only display active drivers who are in the official list and have not retired
+      final hasDriverInfo = _drivers.any((d) => d.driverNumber == driverNumber);
+      if (!hasDriverInfo || isDriverRetired(driverNumber)) {
+        continue;
+      }
+
       // Binary-search for the closest samples.
       final pt = _interpolatePosition(locations, _playbackTime!);
       if (pt != null) {
