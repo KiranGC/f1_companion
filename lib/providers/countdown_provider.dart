@@ -77,9 +77,9 @@ class CountdownProvider extends ChangeNotifier {
       _allMeetings = meetings;
 
       // Find the next upcoming meeting.
-      final now = DateTime.now();
+      final now = DateTime.now().toUtc();
       _nextMeeting = meetings.cast<Meeting?>().firstWhere(
-            (m) => m!.dateStart.isAfter(now),
+            (m) => m!.dateStart.toUtc().isAfter(now),
             orElse: () => null,
           );
 
@@ -131,7 +131,7 @@ class CountdownProvider extends ChangeNotifier {
       return;
     }
 
-    final remaining = _nextMeeting!.dateStart.difference(DateTime.now());
+    final remaining = _nextMeeting!.dateStart.toUtc().difference(DateTime.now().toUtc());
 
     if (remaining.isNegative) {
       _countdownDays = 0;

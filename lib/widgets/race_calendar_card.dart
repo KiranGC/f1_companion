@@ -16,14 +16,14 @@ class RaceCalendarCard extends StatelessWidget {
   });
 
   bool get _isCompleted {
-    return meeting.dateEnd.isBefore(DateTime.now());
+    return meeting.dateEnd.toUtc().isBefore(DateTime.now().toUtc());
   }
 
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('d MMM');
     final dateRange =
-        '${dateFormat.format(meeting.dateStart)} – ${dateFormat.format(meeting.dateEnd)}';
+        '${dateFormat.format(meeting.dateStart.toLocal())} – ${dateFormat.format(meeting.dateEnd.toLocal())}';
     final completed = _isCompleted;
 
     return Card(

@@ -54,7 +54,7 @@ class SessionSchedule extends StatelessWidget {
               Expanded(
                 flex: 3,
                 child: Text(
-                  dateFormat.format(session.dateStart),
+                  dateFormat.format(session.dateStart.toLocal()),
                   style: TextStyle(
                     fontSize: 13,
                     color: isRace
@@ -68,7 +68,7 @@ class SessionSchedule extends StatelessWidget {
               SizedBox(
                 width: 50,
                 child: Text(
-                  timeFormat.format(session.dateStart),
+                  timeFormat.format(session.dateStart.toLocal()),
                   textAlign: TextAlign.end,
                   style: TextStyle(
                     fontSize: 13,

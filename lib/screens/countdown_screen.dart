@@ -41,7 +41,7 @@ class CountdownScreen extends StatelessWidget {
 /// Shared handler: navigates to the Race Replay screen for completed races,
 /// or shows a snack-bar for upcoming ones.
 void _onMeetingTap(BuildContext context, Meeting meeting) {
-  if (meeting.dateEnd.isBefore(DateTime.now())) {
+  if (meeting.dateEnd.toUtc().isBefore(DateTime.now().toUtc())) {
     final replayProvider =
         Provider.of<RaceReplayProvider>(context, listen: false);
     replayProvider.loadYear(meeting.year);
