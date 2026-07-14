@@ -750,7 +750,12 @@ class RaceReplayProvider extends ChangeNotifier {
       final flag = event.flag?.toUpperCase() ?? '';
       final msg = event.message.toUpperCase();
 
-      if (flag == 'CHECKERED' || msg.contains('CHECKERED') || msg.contains('SESSION STATUS: ENDED')) {
+      if (flag == 'CHECKERED' ||
+          flag == 'CHEQUERED' ||
+          msg.contains('CHECKERED') ||
+          msg.contains('CHEQUERED') ||
+          msg.contains('SESSION STATUS: ENDED') ||
+          msg.contains('SESSION FINISHED')) {
         return true;
       }
     }

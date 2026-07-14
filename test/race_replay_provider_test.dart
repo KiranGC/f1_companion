@@ -368,8 +368,8 @@ void main() {
           'date': now.add(const Duration(hours: 1, minutes: 30)).toIso8601String(),
           'meeting_key': 123,
           'session_key': 1,
-          'flag': 'CHECKERED',
-          'message': 'CHECKERED FLAG',
+          'flag': 'CHEQUERED',
+          'message': 'CHEQUERED FLAG',
         }),
       ];
 
