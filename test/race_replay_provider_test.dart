@@ -287,5 +287,104 @@ void main() {
       expect(leaderboard[1].currentCompound, 'MEDIUM');
       expect(leaderboard[1].pitStops, 0); // stintNumber 1 - 1 = 0
     });
+
+    test('Lapped cars formatting and isRaceOver detection', () async {
+      final now = DateTime.now().toUtc();
+      final session = Session.fromJson({
+        'session_key': 1,
+        'meeting_key': 123,
+        'session_name': 'Race',
+        'session_type': 'Race',
+        'date_start': now.toIso8601String(),
+        'date_end': now.add(const Duration(hours: 2)).toIso8601String(),
+        'location': 'Suzuka',
+        'country_name': 'Japan',
+        'country_code': 'JPN',
+        'country_key': 6,
+        'circuit_key': 6,
+        'circuit_short_name': 'Suzuka',
+        'gmt_offset': '09:00:00',
+        'year': 2026,
+      });
+
+      mockOpenF1.mockDrivers = [
+        Driver.fromJson({
+          'meeting_key': 123,
+          'session_key': 1,
+          'driver_number': 1,
+          'broadcast_name': 'M VERSTAPPEN',
+          'full_name': 'Max Verstappen',
+          'name_acronym': 'VER',
+          'team_name': 'Red Bull Racing',
+          'team_colour': '0000FF',
+          'first_name': 'Max',
+          'last_name': 'Verstappen'
+        }),
+        Driver.fromJson({
+          'meeting_key': 123,
+          'session_key': 1,
+          'driver_number': 44,
+          'broadcast_name': 'L HAMILTON',
+          'full_name': 'Lewis Hamilton',
+          'name_acronym': 'HAM',
+          'team_name': 'Mercedes',
+          'team_colour': '00FFFF',
+          'first_name': 'Lewis',
+          'last_name': 'Hamilton'
+        }),
+      ];
+
+      mockOpenF1.mockPositions = [
+        RacePosition.fromJson({
+          'date': now.toIso8601String(),
+          'session_key': 1,
+          'meeting_key': 123,
+          'driver_number': 1,
+          'position': 1,
+        }),
+        RacePosition.fromJson({
+          'date': now.toIso8601String(),
+          'session_key': 1,
+          'meeting_key': 123,
+          'driver_number': 44,
+          'position': 2,
+        }),
+      ];
+
+      mockOpenF1.mockIntervals = [
+        IntervalData.fromJson({
+          'date': now.toIso8601String(),
+          'session_key': 1,
+          'meeting_key': 123,
+          'driver_number': 44,
+          'gap_to_leader': '+1 LAP',
+          'interval': '+1 LAP',
+        }),
+      ];
+
+      mockOpenF1.mockRaceControlEvents = [
+        RaceControlEvent.fromJson({
+          'category': 'Flag',
+          'date': now.add(const Duration(hours: 1, minutes: 30)).toIso8601String(),
+          'meeting_key': 123,
+          'session_key': 1,
+          'flag': 'CHECKERED',
+          'message': 'CHECKERED FLAG',
+        }),
+      ];
+
+      await provider.selectSession(session);
+
+      // Verify lapped formatting at Lap 1
+      final leaderboard = provider.getLeaderboard();
+      expect(leaderboard[1].gapToLeaderDisplay, '+1 Lap');
+
+      // Verify isRaceOver is false at start
+      expect(provider.isRaceOver(), false);
+
+      // Seek past checkered flag time and verify isRaceOver becomes true
+      provider.seekTo(0.8); // Advances playbackTime past checkered flag event
+      expect(provider.isRaceOver(), true);
+    });
   });
 }

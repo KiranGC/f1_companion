@@ -179,7 +179,7 @@ class DriverLeaderboard extends StatelessWidget {
                   ? 'Out'
                   : isLeader
                       ? _formatLapTime(entry.lastLapTime)
-                      : _formatGap(entry.gapToLeader);
+                      : (entry.gapToLeaderDisplay ?? '--');
 
               return Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: rowVerticalPadding),

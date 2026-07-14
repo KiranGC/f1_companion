@@ -50,6 +50,7 @@ class LeaderboardEntry {
   final String teamName;
   final String teamColour;
   final double? gapToLeader;
+  final String? gapToLeaderDisplay;
   final double? interval;
   final String? currentCompound;
   final int pitStops;
@@ -63,6 +64,7 @@ class LeaderboardEntry {
     required this.teamName,
     required this.teamColour,
     this.gapToLeader,
+    this.gapToLeaderDisplay,
     this.interval,
     this.currentCompound,
     this.pitStops = 0,
@@ -612,6 +614,28 @@ class RaceReplayProvider extends ChangeNotifier {
         }
       }
 
+      String? gapToLeaderDisplay;
+      if (isRetired) {
+        gapToLeaderDisplay = 'Out';
+      } else if (posEntry.value.position == 1) {
+        gapToLeaderDisplay = 'Leader';
+      } else if (iv != null) {
+        final rawGap = iv.gapToLeaderDisplay;
+        if (rawGap != null) {
+          if (rawGap.toUpperCase().contains('LAP')) {
+            final normalized = rawGap.toUpperCase().replaceAll('LAPS', 'Laps').replaceAll('LAP', 'Lap');
+            gapToLeaderDisplay = normalized.startsWith('+') ? normalized : '+$normalized';
+          } else {
+            final val = double.tryParse(rawGap);
+            if (val != null) {
+              gapToLeaderDisplay = '+${val.toStringAsFixed(3)}';
+            } else {
+              gapToLeaderDisplay = rawGap;
+            }
+          }
+        }
+      }
+
       entries.add(LeaderboardEntry(
         position: posEntry.value.position,
         driverNumber: driverNum,
@@ -619,6 +643,7 @@ class RaceReplayProvider extends ChangeNotifier {
         teamName: driver.teamName,
         teamColour: driver.teamColour,
         gapToLeader: iv?.gapToLeader,
+        gapToLeaderDisplay: gapToLeaderDisplay,
         interval: iv?.interval,
         currentCompound: currentCompound[driverNum],
         pitStops: pitStopCount[driverNum] ?? 0,
@@ -711,6 +736,25 @@ class RaceReplayProvider extends ChangeNotifier {
     final lastLapEnd = lastLap.dateStart!.add(Duration(microseconds: (durationSec * 1000000).round()));
 
     return _playbackTime!.isAfter(lastLapEnd);
+  }
+
+  /// Checks if the race is completed (checkered flag waved) at or before the current [playbackTime].
+  bool isRaceOver() {
+    if (_playbackTime == null || _raceControlEvents.isEmpty) {
+      return false;
+    }
+
+    for (final event in _raceControlEvents) {
+      if (event.date.isAfter(_playbackTime!)) break;
+
+      final flag = event.flag?.toUpperCase() ?? '';
+      final msg = event.message.toUpperCase();
+
+      if (flag == 'CHECKERED' || msg.contains('CHECKERED') || msg.contains('SESSION STATUS: ENDED')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Returns the current track flag color based on race control events at or

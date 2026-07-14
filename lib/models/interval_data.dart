@@ -20,6 +20,9 @@ class IntervalData {
   /// Time gap to the race leader in seconds. Null for the leader or when unavailable.
   final double? gapToLeader;
 
+  /// String representation of the time gap to the race leader, preserving raw string flags like "+1 LAP".
+  final String? gapToLeaderDisplay;
+
   /// Time interval to the car directly ahead in seconds. Null for the leader or when unavailable.
   final double? interval;
 
@@ -29,6 +32,7 @@ class IntervalData {
     required this.driverNumber,
     required this.meetingKey,
     this.gapToLeader,
+    this.gapToLeaderDisplay,
     this.interval,
   });
 
@@ -37,12 +41,14 @@ class IntervalData {
   /// Handles the case where `gap_to_leader` and `interval` may be returned
   /// as either a number or a string (e.g., "LAP" for lapped cars).
   factory IntervalData.fromJson(Map<String, dynamic> json) {
+    final rawGap = json['gap_to_leader'];
     return IntervalData(
       date: DateTime.parse(json['date'] as String),
       sessionKey: json['session_key'] as int,
       driverNumber: json['driver_number'] as int,
       meetingKey: json['meeting_key'] as int,
-      gapToLeader: _parseNullableDouble(json['gap_to_leader']),
+      gapToLeader: _parseNullableDouble(rawGap),
+      gapToLeaderDisplay: rawGap?.toString(),
       interval: _parseNullableDouble(json['interval']),
     );
   }
@@ -63,7 +69,7 @@ class IntervalData {
       'session_key': sessionKey,
       'driver_number': driverNumber,
       'meeting_key': meetingKey,
-      'gap_to_leader': gapToLeader,
+      'gap_to_leader': gapToLeaderDisplay ?? gapToLeader,
       'interval': interval,
     };
   }

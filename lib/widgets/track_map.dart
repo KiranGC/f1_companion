@@ -15,6 +15,7 @@ class TrackMapWidget extends StatelessWidget {
   final List<Driver> drivers;
   final Color trackColor;
   final bool hasTelemetry;
+  final bool isRaceOver;
 
   const TrackMapWidget({
     super.key,
@@ -23,6 +24,7 @@ class TrackMapWidget extends StatelessWidget {
     required this.drivers,
     this.trackColor = Colors.white,
     this.hasTelemetry = true,
+    this.isRaceOver = false,
   });
 
   @override
@@ -40,6 +42,49 @@ class TrackMapWidget extends StatelessWidget {
             size: Size.infinite,
           ),
         ),
+        if (isRaceOver)
+          Positioned(
+            top: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '🏁',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'RACE FINISHED',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (!hasTelemetry)
           Positioned(
             left: 12,
