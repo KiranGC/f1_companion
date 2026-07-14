@@ -22,7 +22,7 @@ class HttpJolpicaService implements JolpicaService {
   Future<List<Map<String, dynamic>>> getRaceCalendar(int year) async {
     final url = '$_baseUrl/$year.json';
     try {
-      final response = await _client.get(Uri.parse(url));
+      final response = await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;

@@ -19,7 +19,7 @@ class HttpCircuitService implements CircuitService {
   @override
   Future<CircuitInfo?> getCircuitInfo(String circuitInfoUrl) async {
     try {
-      final response = await _client.get(Uri.parse(circuitInfoUrl));
+      final response = await _client.get(Uri.parse(circuitInfoUrl)).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;

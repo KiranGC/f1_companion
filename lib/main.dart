@@ -25,7 +25,7 @@ void main() {
           create: (_) => CountdownProvider(openF1Service)..loadData(),
         ),
         ChangeNotifierProvider(
-          create: (_) => RaceReplayProvider(openF1Service, circuitService),
+          create: (_) => RaceReplayProvider(openF1Service, circuitService)..loadYear(2026),
         ),
         ChangeNotifierProvider(
           create: (_) => NavigationProvider(),
@@ -60,6 +60,34 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  late final NavigationProvider _navigationProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _navigationProvider = Provider.of<NavigationProvider>(context, listen: false);
+    _navigationProvider.addListener(_onNavigationChanged);
+  }
+
+  @override
+  void dispose() {
+    _navigationProvider.removeListener(_onNavigationChanged);
+    super.dispose();
+  }
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    final countdownProvider = Provider.of<CountdownProvider>(context, listen: false);
+    final replayProvider = Provider.of<RaceReplayProvider>(context, listen: false);
+
+    if (_navigationProvider.currentIndex == 0) {
+      countdownProvider.startTimer();
+      replayProvider.pause();
+    } else {
+      countdownProvider.stopTimer();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final navigationProvider = Provider.of<NavigationProvider>(context);

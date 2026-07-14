@@ -59,34 +59,42 @@ class RaceCalendarCard extends StatelessWidget {
                     return const SizedBox.shrink();
                   }
                   return Padding(
-                    padding: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.only(right: 10),
                     child: Opacity(
                       opacity: completed ? 0.6 : 1.0,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: meeting.circuitImage,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 56,
-                            height: 56,
-                            color: AppTheme.surface,
-                            child: const Icon(
-                              Icons.track_changes,
-                              color: AppTheme.textMuted,
-                              size: 24,
+                        borderRadius: BorderRadius.circular(6),
+                        child: ColorFiltered(
+                          colorFilter: const ColorFilter.matrix([
+                            0, 0, 0, 0, 255,
+                            0, 0, 0, 0, 255,
+                            0, 0, 0, 0, 255,
+                            1, 0, 0, 0, 0,
+                          ]),
+                          child: CachedNetworkImage(
+                            imageUrl: meeting.circuitImage,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => Container(
+                              width: 44,
+                              height: 44,
+                              color: Colors.transparent,
+                              child: const Icon(
+                                Icons.track_changes,
+                                color: AppTheme.textMuted,
+                                size: 18,
+                              ),
                             ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 56,
-                            height: 56,
-                            color: AppTheme.surface,
-                            child: const Icon(
-                              Icons.track_changes,
-                              color: AppTheme.textMuted,
-                              size: 24,
+                            errorWidget: (context, url, error) => Container(
+                              width: 44,
+                              height: 44,
+                              color: Colors.transparent,
+                              child: const Icon(
+                                Icons.track_changes,
+                                color: AppTheme.textMuted,
+                                size: 18,
+                              ),
                             ),
                           ),
                         ),

@@ -54,6 +54,7 @@ class LeaderboardEntry {
   final String? currentCompound;
   final int pitStops;
   final double? lastLapTime;
+  final bool isRetired;
 
   const LeaderboardEntry({
     required this.position,
@@ -66,11 +67,12 @@ class LeaderboardEntry {
     this.currentCompound,
     this.pitStops = 0,
     this.lastLapTime,
+    this.isRetired = false,
   });
 
   @override
   String toString() =>
-      'LeaderboardEntry(P$position $nameAcronym gap:$gapToLeader)';
+      'LeaderboardEntry(P$position $nameAcronym gap:$gapToLeader retired:$isRetired)';
 }
 
 // =============================================================================
@@ -92,7 +94,7 @@ class RaceReplayProvider extends ChangeNotifier {
   // Selection state
   // ---------------------------------------------------------------------------
 
-  int _selectedYear = 2025;
+  int _selectedYear = 2026;
   int get selectedYear => _selectedYear;
 
   Meeting? _selectedMeeting;
@@ -319,7 +321,6 @@ class RaceReplayProvider extends ChangeNotifier {
             .getCircuitInfo(_selectedMeeting!.circuitInfoUrl);
       }
 
-      // Session time window.
       _sessionStart = session.dateStart;
       _sessionEnd = session.dateEnd;
       _playbackTime = _sessionStart;
@@ -554,12 +555,12 @@ class RaceReplayProvider extends ChangeNotifier {
     final pitStopCount = <int, int>{};
     for (final s in _stints) {
       final d = s.driverNumber;
-      final stops = s.stintNumber - 1;
-      if (stops > (pitStopCount[d] ?? 0)) {
-        pitStopCount[d] = stops;
-      }
-      // The latest stint whose lapStart ≤ currentLap is the active compound.
+      // Only consider stints that have actually started by currentLap
       if (s.lapStart <= _currentLap) {
+        final stops = s.stintNumber - 1;
+        if (stops > (pitStopCount[d] ?? 0)) {
+          pitStopCount[d] = stops;
+        }
         currentCompound[d] = s.compound ?? '';
       }
     }
@@ -584,6 +585,27 @@ class RaceReplayProvider extends ChangeNotifier {
       if (driver == null) continue;
 
       final iv = latestIntervals[driverNum];
+      final isRetired = isDriverRetired(driverNum);
+
+      double? lastLapTime = latestLaps[driverNum] != null
+          ? (latestLaps[driverNum]!.lapDuration ?? latestLaps[driverNum]!.totalSectorDuration)
+          : null;
+
+      if (lastLapTime == null && _currentLap > 1) {
+        lastLapTime = getReferenceLapDuration(_currentLap - 1);
+        if (lastLapTime == null) {
+          final fallbackLaps = _laps
+              .where((l) => l.lapNumber == _currentLap - 1)
+              .map((l) => l.lapDuration ?? l.totalSectorDuration)
+              .whereType<double>()
+              .toList();
+          if (fallbackLaps.isNotEmpty) {
+            fallbackLaps.sort();
+            lastLapTime = fallbackLaps[fallbackLaps.length ~/ 2];
+          }
+        }
+      }
+
       entries.add(LeaderboardEntry(
         position: posEntry.value.position,
         driverNumber: driverNum,
@@ -594,14 +616,95 @@ class RaceReplayProvider extends ChangeNotifier {
         interval: iv?.interval,
         currentCompound: currentCompound[driverNum],
         pitStops: pitStopCount[driverNum] ?? 0,
-        lastLapTime: latestLaps[driverNum] != null
-            ? (latestLaps[driverNum]!.lapDuration ?? latestLaps[driverNum]!.totalSectorDuration)
-            : null,
+        lastLapTime: lastLapTime,
+        isRetired: isRetired,
       ));
     }
 
-    entries.sort((a, b) => a.position.compareTo(b.position));
+    entries.sort((a, b) {
+      final aRetired = a.isRetired;
+      final bRetired = b.isRetired;
+      if (aRetired && !bRetired) return 1;
+      if (!aRetired && bRetired) return -1;
+      return a.position.compareTo(b.position);
+    });
     return entries;
+  }
+
+  /// Calculates a reference lap duration for [lapNumber] based on the difference
+  /// between the earliest start time of that lap and the earliest start time of
+  /// the next lap across all drivers.
+  double? getReferenceLapDuration(int lapNumber) {
+    if (lapNumber < 1 || _laps.isEmpty) return null;
+
+    DateTime? startCurrent;
+    for (final l in _laps) {
+      if (l.lapNumber == lapNumber && l.dateStart != null) {
+        if (startCurrent == null || l.dateStart!.isBefore(startCurrent)) {
+          startCurrent = l.dateStart;
+        }
+      }
+    }
+
+    DateTime? startNext;
+    for (final l in _laps) {
+      if (l.lapNumber == lapNumber + 1 && l.dateStart != null) {
+        if (startNext == null || l.dateStart!.isBefore(startNext)) {
+          startNext = l.dateStart;
+        }
+      }
+    }
+
+    if (startCurrent != null && startNext != null) {
+      final diff = startNext.difference(startCurrent).inMilliseconds / 1000.0;
+      // Sanity check: F1 race lap times are typically between 60.0 and 300.0 seconds
+      if (diff > 50.0 && diff < 300.0) {
+        return diff;
+      }
+    }
+    return null;
+  }
+
+  /// Checks if a driver has retired/crashed by the current [playbackTime].
+  bool isDriverRetired(int driverNumber) {
+    if (_playbackTime == null || _laps.isEmpty) return false;
+
+    // Find all laps for this driver
+    final driverLaps = _laps.where((l) => l.driverNumber == driverNumber).toList();
+    if (driverLaps.isEmpty) return false;
+
+    // Find the max lap number this driver ever started/finished in this session
+    final maxLapNum = driverLaps.map((l) => l.lapNumber).fold(0, (max, val) => val > max ? val : max);
+
+    // If they completed the full race distance (or within 2 laps of the max race lap), they didn't retire
+    // (they just finished the race, maybe a lap down).
+    if (maxLapNum >= _totalLaps - 2) return false;
+
+    // Find the last lap record for this driver
+    final lastLap = driverLaps.firstWhere((l) => l.lapNumber == maxLapNum);
+    if (lastLap.dateStart == null) {
+      // Find the earliest valid lap start time across any driver (race start)
+      DateTime? raceStart;
+      for (final l in _laps) {
+        if (l.dateStart != null) {
+          if (raceStart == null || l.dateStart!.isBefore(raceStart)) {
+            raceStart = l.dateStart;
+          }
+        }
+      }
+      if (raceStart != null) {
+        // If we are past the start of the race, they are retired
+        return _playbackTime!.isAfter(raceStart);
+      }
+      return false;
+    }
+
+    // If playbackTime is after the start of their last lap + its duration (or a default of 2 minutes if duration is null),
+    // then they have retired.
+    final durationSec = lastLap.lapDuration ?? lastLap.totalSectorDuration ?? 120.0;
+    final lastLapEnd = lastLap.dateStart!.add(Duration(microseconds: (durationSec * 1000000).round()));
+
+    return _playbackTime!.isAfter(lastLapEnd);
   }
 
   /// Returns the current track flag color based on race control events at or
@@ -703,24 +806,11 @@ class RaceReplayProvider extends ChangeNotifier {
     if (_playbackTime == null) return;
 
     if (_laps.isNotEmpty) {
-      // Use laps data: find the highest lap number whose dateStart ≤ playbackTime.
-      // _laps is not necessarily pre-sorted by time globally (multiple drivers),
-      // so we find the max lap number for the leader driver up to playbackTime.
-      // This is O(n) but _laps is fetched once; the inner loop is fast.
       int maxLap = 1;
-      int? leaderNum;
-      for (final p in _positions) {
-        if (p.date.isAfter(_playbackTime!)) break;
-        if (p.position == 1) {
-          leaderNum = p.driverNumber;
-        }
-      }
       for (final lap in _laps) {
-        if (leaderNum != null && lap.driverNumber != leaderNum) continue;
         if (lap.dateStart != null && lap.dateStart!.isAfter(_playbackTime!)) continue;
         if (lap.lapNumber > maxLap) maxLap = lap.lapNumber;
       }
-      debugPrint('RaceReplayProvider._updateCurrentLap: playbackTime=$_playbackTime, leaderNum=$leaderNum, maxLap=$maxLap, lapsCount=${_laps.length}, positionsCount=${_positions.length}');
       _currentLap = maxLap.clamp(1, _totalLaps > 0 ? _totalLaps : maxLap);
     } else if (_positions.isNotEmpty) {
       // Fallback: count leader position changes as lap boundaries.

@@ -47,7 +47,7 @@ class HttpOpenF1Service implements OpenF1Service {
 
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        final response = await _client.get(Uri.parse(url));
+        final response = await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
 
         if (response.statusCode == 200) {
           final List<dynamic> data = json.decode(response.body) as List<dynamic>;
@@ -61,7 +61,7 @@ class HttpOpenF1Service implements OpenF1Service {
           continue;
         } else {
           debugPrint('OpenF1Service: GET $url returned ${response.statusCode}');
-          return [];
+          throw Exception('OpenF1 API error: GET $url returned ${response.statusCode}');
         }
       } catch (e) {
         if (attempt < retries) {
@@ -71,7 +71,7 @@ class HttpOpenF1Service implements OpenF1Service {
           continue;
         }
         debugPrint('OpenF1Service: Final error fetching $url — $e');
-        return [];
+        rethrow;
       }
     }
     return [];

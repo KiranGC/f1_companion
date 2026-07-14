@@ -280,7 +280,7 @@ void main() {
       expect(leaderboard[0].driverNumber, 1);
       expect(leaderboard[0].position, 1);
       expect(leaderboard[0].currentCompound, 'SOFT');
-      expect(leaderboard[0].pitStops, 1); // stintNumber 2 - 1 = 1 pit stop maximum stint seen
+      expect(leaderboard[0].pitStops, 0); // stintNumber 2 starts on Lap 16, so 0 stops on Lap 1
 
       expect(leaderboard[1].driverNumber, 44);
       expect(leaderboard[1].position, 2);

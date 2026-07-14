@@ -18,9 +18,20 @@ class CountdownScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<CountdownProvider>(
       builder: (context, provider, child) {
-        return ResponsiveLayout(
-          phoneLayout: _PhoneLayout(provider: provider),
-          tabletLayout: _TabletLayout(provider: provider),
+        return OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.landscape) {
+              return ResponsiveLayout(
+                phoneLayout: _PhoneLayout(provider: provider),
+                tabletLayout: _TabletLayout(provider: provider),
+              );
+            } else {
+              return ResponsiveLayout(
+                phoneLayout: _PhoneLayout(provider: provider),
+                tabletLayout: _TabletPortraitLayout(provider: provider),
+              );
+            }
+          },
         );
       },
     );
@@ -45,9 +56,11 @@ void _onMeetingTap(BuildContext context, Meeting meeting) {
   }
 }
 
-/// Returns all meetings that are not pre-season testing events.
-List<Meeting> _filteredMeetings(List<Meeting> all) =>
-    all.where((m) => !m.meetingName.toLowerCase().contains('testing')).toList();
+List<Meeting> _getCalendarMeetings(List<Meeting> allMeetings, Meeting? nextMeeting) {
+  return allMeetings
+      .where((m) => !m.meetingName.toLowerCase().contains('testing'))
+      .toList();
+}
 
 // ---------------------------------------------------------------------------
 // Phone Layout
@@ -60,93 +73,14 @@ class _PhoneLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meetings = _filteredMeetings(provider.allMeetings);
+    final meetings = _getCalendarMeetings(provider.allMeetings, provider.nextMeeting);
+    
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          if (provider.isLoading)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primary),
-              ),
-            )
-          else if (provider.error != null)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _ErrorView(
-                error: provider.error!,
-                onRetry: provider.loadData,
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildListDelegate([
-                // Countdown card for the next race
-                if (provider.nextMeeting != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: CountdownCard(
-                      meeting: provider.nextMeeting!,
-                      days: provider.countdownDays,
-                      hours: provider.countdownHours,
-                      minutes: provider.countdownMinutes,
-                      seconds: provider.countdownSeconds,
-                      sessions: provider.nextMeetingSessions,
-                    ),
-                  ),
-
-                const SizedBox(height: 32),
-
-                // Section header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'RACE CALENDAR',
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.4,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // List of all meetings (exclude pre-season testing)
-                ...meetings.map(
-                  (meeting) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: RaceCalendarCard(
-                      meeting: meeting,
-                      onTap: () => _onMeetingTap(context, meeting),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-              ]),
-            ),
-        ],
-      ),
-    );
-  }
-
-  SliverAppBar _buildSliverAppBar() {
-    return SliverAppBar(
-      expandedHeight: 120,
-      pinned: true,
-      backgroundColor: AppTheme.surface,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+      appBar: AppBar(
+        backgroundColor: AppTheme.surface,
+        elevation: 0,
         title: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShaderMask(
@@ -175,19 +109,72 @@ class _PhoneLayout extends StatelessWidget {
             ),
           ],
         ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppTheme.background,
-                AppTheme.surface.withValues(alpha: 0.95),
-              ],
-            ),
-          ),
-        ),
       ),
+      body: provider.isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            )
+          : provider.error != null
+              ? _ErrorView(
+                  error: provider.error!,
+                  onRetry: provider.loadData,
+                )
+              : SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (provider.nextMeeting != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: CountdownCard(
+                            meeting: provider.nextMeeting!,
+                            days: provider.countdownDays,
+                            hours: provider.countdownHours,
+                            minutes: provider.countdownMinutes,
+                            seconds: provider.countdownSeconds,
+                            sessions: provider.nextMeetingSessions,
+                          ),
+                        ),
+
+                      const SizedBox(height: 24),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'RACE CALENDAR',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.4,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          itemCount: meetings.length,
+                          itemBuilder: (context, index) {
+                            final meeting = meetings[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              child: RaceCalendarCard(
+                                meeting: meeting,
+                                onTap: () => _onMeetingTap(context, meeting),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
     );
   }
 }
@@ -203,123 +190,14 @@ class _TabletLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meetings = _filteredMeetings(provider.allMeetings);
+    final meetings = _getCalendarMeetings(provider.allMeetings, provider.nextMeeting);
+    
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          if (provider.isLoading)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primary),
-              ),
-            )
-          else if (provider.error != null)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _ErrorView(
-                error: provider.error!,
-                onRetry: provider.loadData,
-              ),
-            )
-          else
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Left panel — countdown + session schedule
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        children: [
-                          if (provider.nextMeeting != null)
-                            CountdownCard(
-                              meeting: provider.nextMeeting!,
-                              days: provider.countdownDays,
-                              hours: provider.countdownHours,
-                              minutes: provider.countdownMinutes,
-                              seconds: provider.countdownSeconds,
-                              sessions: provider.nextMeetingSessions,
-                            ),
-                          const SizedBox(height: 16),
-                          if (provider.nextMeetingSessions.isNotEmpty)
-                            SessionSchedule(
-                              sessions: provider.nextMeetingSessions,
-                            ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 16),
-
-                    // Right panel — race calendar grid
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'RACE CALENDAR',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.4,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final useSingleColumn = constraints.maxWidth < 450;
-                              return GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: useSingleColumn ? 1 : 2,
-                                  mainAxisSpacing: 8,
-                                  crossAxisSpacing: 8,
-                                  childAspectRatio:
-                                      useSingleColumn ? 4.2 : 2.8,
-                                ),
-                                itemCount: meetings.length,
-                                itemBuilder: (context, index) {
-                                  final meeting = meetings[index];
-                                  return RaceCalendarCard(
-                                    meeting: meeting,
-                                    onTap: () =>
-                                        _onMeetingTap(context, meeting),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  SliverAppBar _buildSliverAppBar() {
-    return SliverAppBar(
-      expandedHeight: 120,
-      pinned: true,
-      backgroundColor: AppTheme.surface,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
+      appBar: AppBar(
+        backgroundColor: AppTheme.surface,
+        elevation: 0,
         title: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ShaderMask(
@@ -348,19 +226,217 @@ class _TabletLayout extends StatelessWidget {
             ),
           ],
         ),
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppTheme.background,
-                AppTheme.surface.withValues(alpha: 0.95),
-              ],
+      ),
+      body: provider.isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            )
+          : provider.error != null
+              ? _ErrorView(
+                  error: provider.error!,
+                  onRetry: provider.loadData,
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (provider.nextMeeting != null)
+                                CountdownCard(
+                                  meeting: provider.nextMeeting!,
+                                  days: provider.countdownDays,
+                                  hours: provider.countdownHours,
+                                  minutes: provider.countdownMinutes,
+                                  seconds: provider.countdownSeconds,
+                                  sessions: provider.nextMeetingSessions,
+                                ),
+                              const SizedBox(height: 16),
+                              if (provider.nextMeetingSessions.isNotEmpty)
+                                SessionSchedule(
+                                  sessions: provider.nextMeetingSessions,
+                                ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'RACE CALENDAR',
+                                style: TextStyle(
+                                  fontFamily: 'Outfit',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.4,
+                                  color: AppTheme.textMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: RaceCalendarListView(
+                                  meetings: meetings,
+                                  nextMeeting: provider.nextMeeting,
+                                  onMeetingTap: _onMeetingTap,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tablet Portrait Layout
+// ---------------------------------------------------------------------------
+
+class _TabletPortraitLayout extends StatelessWidget {
+  const _TabletPortraitLayout({required this.provider});
+
+  final CountdownProvider provider;
+
+  @override
+  Widget build(BuildContext context) {
+    final meetings = _getCalendarMeetings(provider.allMeetings, provider.nextMeeting);
+
+    return Scaffold(
+      backgroundColor: AppTheme.background,
+      appBar: AppBar(
+        backgroundColor: AppTheme.surface,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ShaderMask(
+              shaderCallback: (bounds) =>
+                  AppTheme.f1RedGradient.createShader(bounds),
+              child: const Text(
+                '2026 F1 COUNTDOWN',
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(
+              'Countdown to upcoming events...',
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
+      body: provider.isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            )
+          : provider.error != null
+              ? _ErrorView(
+                  error: provider.error!,
+                  onRetry: provider.loadData,
+                )
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Top row: Countdown card on left, Weekend schedule on right
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: provider.nextMeeting != null
+                                  ? CountdownCard(
+                                      meeting: provider.nextMeeting!,
+                                      days: provider.countdownDays,
+                                      hours: provider.countdownHours,
+                                      minutes: provider.countdownMinutes,
+                                      seconds: provider.countdownSeconds,
+                                      sessions: provider.nextMeetingSessions,
+                                    )
+                                  : const SizedBox(),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 2,
+                              child: provider.nextMeetingSessions.isNotEmpty
+                                  ? Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'WEEKEND SCHEDULE',
+                                          style: TextStyle(
+                                            fontFamily: 'Outfit',
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1.4,
+                                            color: AppTheme.textMuted,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SessionSchedule(
+                                          sessions:
+                                              provider.nextMeetingSessions,
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox(),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        Text(
+                          'RACE CALENDAR',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.4,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Bottom scrollable calendar list
+                        Expanded(
+                          child: RaceCalendarListView(
+                            meetings: meetings,
+                            nextMeeting: provider.nextMeeting,
+                            onMeetingTap: _onMeetingTap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
     );
   }
 }
@@ -424,6 +500,110 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Race Calendar List View (Independent Scroll, exactly 4 visible, auto-scroll to next)
+// ---------------------------------------------------------------------------
+
+class RaceCalendarListView extends StatefulWidget {
+  final List<Meeting> meetings;
+  final Meeting? nextMeeting;
+  final Function(BuildContext, Meeting) onMeetingTap;
+
+  const RaceCalendarListView({
+    super.key,
+    required this.meetings,
+    required this.nextMeeting,
+    required this.onMeetingTap,
+  });
+
+  @override
+  State<RaceCalendarListView> createState() => _RaceCalendarListViewState();
+}
+
+class _RaceCalendarListViewState extends State<RaceCalendarListView> {
+  late final ScrollController _scrollController;
+  bool _hasScrolledToNext = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void didUpdateWidget(covariant RaceCalendarListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.nextMeeting?.meetingKey != oldWidget.nextMeeting?.meetingKey) {
+      _hasScrolledToNext = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useSingleColumn = constraints.maxWidth < 450;
+        final double itemHeight = useSingleColumn
+            ? (constraints.maxWidth / 4.2)
+            : (constraints.maxWidth / 2 / 2.8);
+        final double itemSpacing = 8.0;
+        final double rowHeight = itemHeight + itemSpacing;
+
+        // Auto-scroll to center on next meeting (index - 2) once
+        if (!_hasScrolledToNext) {
+          final nextIndex = widget.meetings.indexWhere(
+              (m) => m.meetingKey == widget.nextMeeting?.meetingKey);
+
+          if (nextIndex != -1) {
+            final int startIndex = useSingleColumn
+                ? (nextIndex - 2).clamp(0, widget.meetings.length)
+                : ((nextIndex - 2) ~/ 2).clamp(0, widget.meetings.length ~/ 2);
+
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                _scrollController.jumpTo(startIndex * rowHeight);
+                _hasScrolledToNext = true;
+              }
+            });
+          }
+        }
+
+        // Limit height to fit exactly 4 rows (or 2 rows if 2 columns, to display 4 items total)
+        final visibleRows = useSingleColumn ? 4 : 2;
+        final viewportHeight = visibleRows * rowHeight;
+        final height = constraints.maxHeight.isFinite ? constraints.maxHeight : viewportHeight;
+
+        return SizedBox(
+          height: height,
+          child: GridView.builder(
+            controller: _scrollController,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: useSingleColumn ? 1 : 2,
+              mainAxisSpacing: itemSpacing,
+              crossAxisSpacing: itemSpacing,
+              childAspectRatio: useSingleColumn ? 4.2 : 2.8,
+            ),
+            itemCount: widget.meetings.length,
+            itemBuilder: (context, index) {
+              final meeting = widget.meetings[index];
+              return RaceCalendarCard(
+                meeting: meeting,
+                onTap: () => widget.onMeetingTap(context, meeting),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

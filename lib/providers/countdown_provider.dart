@@ -95,7 +95,7 @@ class CountdownProvider extends ChangeNotifier {
 
       // Compute initial countdown and start the periodic timer.
       _updateCountdown();
-      _startTimer();
+      startTimer();
     } catch (e) {
       _error = 'Failed to load race calendar: $e';
       debugPrint('CountdownProvider: $e');
@@ -109,12 +109,17 @@ class CountdownProvider extends ChangeNotifier {
   // Timer
   // ---------------------------------------------------------------------------
 
-  void _startTimer() {
-    _timer?.cancel();
+  void startTimer() {
+    if (_timer != null) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       _updateCountdown();
       notifyListeners();
     });
+  }
+
+  void stopTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   void _updateCountdown() {

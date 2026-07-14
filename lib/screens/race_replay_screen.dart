@@ -479,12 +479,14 @@ class _InfoChip extends StatelessWidget {
     required this.label,
     required this.value,
     this.hasDropdown = false,
+    this.showLabel = true,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final bool hasDropdown;
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -504,44 +506,68 @@ class _InfoChip extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: AppTheme.primary),
           const SizedBox(width: 6),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+          if (showLabel)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                    color: AppTheme.textMuted,
                   ),
-                  if (hasDropdown) ...[
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.arrow_drop_down_rounded,
-                      size: 14,
-                      color: AppTheme.textMuted,
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
+                    if (hasDropdown) ...[
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 14,
+                        color: AppTheme.textMuted,
+                      ),
+                    ],
                   ],
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                if (hasDropdown) ...[
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.arrow_drop_down_rounded,
+                    size: 14,
+                    color: AppTheme.textMuted,
+                  ),
                 ],
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
@@ -613,6 +639,179 @@ class _LapInfoBar extends StatelessWidget {
   }
 }
 
+class _CombinedPlaybackControls extends StatelessWidget {
+  final RaceReplayProvider provider;
+
+  const _CombinedPlaybackControls({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _calculateProgress(provider);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 520;
+        final spacing = isNarrow ? 6.0 : 12.0;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.border.withValues(alpha: 0.3),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              // Play/Pause button
+              IconButton(
+                icon: Icon(
+                  provider.isPlaying
+                      ? Icons.pause_rounded
+                      : Icons.play_arrow_rounded,
+                  color: AppTheme.textPrimary,
+                ),
+                onPressed: provider.togglePlayPause,
+                iconSize: 24,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
+              ),
+              const SizedBox(width: 4),
+
+              // Timeline slider
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    activeTrackColor: AppTheme.primary,
+                    inactiveTrackColor:
+                        AppTheme.border.withValues(alpha: 0.3),
+                    thumbColor: AppTheme.primary,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 5,
+                    ),
+                    trackHeight: 2,
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 10,
+                    ),
+                  ),
+                  child: Slider(
+                    value: progress.clamp(0.0, 1.0),
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (value) => provider.seekTo(value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Elapsed time
+              Text(
+                _formatElapsed(
+                  provider.playbackTime,
+                  provider.sessionStart,
+                ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              if (!isNarrow) ...[
+                const SizedBox(width: 12),
+                // Vertical divider
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: AppTheme.border.withValues(alpha: 0.2),
+                ),
+              ],
+              SizedBox(width: spacing),
+
+              // Lap Chip
+              _InfoChip(
+                icon: Icons.flag_rounded,
+                label: 'Lap',
+                value: '${provider.currentLap} / ${provider.totalLaps}',
+                showLabel: !isNarrow,
+              ),
+              SizedBox(width: spacing),
+
+              // Speed selector
+              PopupMenuButton<double>(
+                tooltip: 'Select Speed',
+                itemBuilder: (context) => [0.5, 1.0, 2.0, 5.0, 10.0, 20.0].map((s) => PopupMenuItem(
+                  value: s,
+                  height: 32,
+                  child: Text('${s}x', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                )).toList(),
+                onSelected: (speed) => provider.setPlaybackSpeed(speed),
+                color: AppTheme.cardSurface,
+                child: _InfoChip(
+                  icon: Icons.speed_rounded,
+                  label: 'Speed',
+                  value: '${provider.playbackSpeed}x',
+                  hasDropdown: true,
+                  showLabel: !isNarrow,
+                ),
+              ),
+              SizedBox(width: spacing),
+
+              // Refresh selector
+              PopupMenuButton<int>(
+                tooltip: 'Select Refresh Rate',
+                itemBuilder: (context) => [1, 2, 5, 10, 30, 60].map((r) => PopupMenuItem(
+                  value: r,
+                  height: 32,
+                  child: Text('${r}s', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                )).toList(),
+                onSelected: (seconds) => provider.setApiRefreshInterval(seconds),
+                color: AppTheme.cardSurface,
+                child: _InfoChip(
+                  icon: Icons.timer_rounded,
+                  label: 'Refresh',
+                  value: '${provider.apiRefreshIntervalSeconds}s',
+                  hasDropdown: true,
+                  showLabel: !isNarrow,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double _calculateProgress(RaceReplayProvider provider) {
+    if (provider.sessionStart == null || provider.sessionEnd == null) {
+      return 0.0;
+    }
+    if (provider.playbackTime == null) return 0.0;
+    final total = provider.sessionEnd!
+        .difference(provider.sessionStart!)
+        .inMilliseconds;
+    if (total <= 0) return 0.0;
+    final elapsed = provider.playbackTime!
+        .difference(provider.sessionStart!)
+        .inMilliseconds;
+    return (elapsed / total).clamp(0.0, 1.0);
+  }
+
+  String _formatElapsed(DateTime? playbackTime, DateTime? sessionStart) {
+    if (playbackTime == null || sessionStart == null) return '00:00:00';
+    final diff = playbackTime.difference(sessionStart);
+    final hours = diff.inHours.abs().toString().padLeft(2, '0');
+    final minutes = (diff.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds.abs() % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Landscape Layout (65% Map on left, 35% controls on right)
 // ---------------------------------------------------------------------------
@@ -676,7 +875,7 @@ class _LandscapeLayout extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _LapInfoBar(provider: provider),
+                  _CombinedPlaybackControls(provider: provider),
                 ],
               ),
             ),
@@ -684,24 +883,12 @@ class _LandscapeLayout extends StatelessWidget {
 
           const SizedBox(width: 16),
 
-          // Right side: 35% controls + leaderboard
+          // Right side: 35% leaderboard (filling full height)
           Expanded(
             flex: 35,
-            child: Column(
-              children: [
-                // Mini Leaderboard
-                Expanded(
-                  child: DriverLeaderboard(
-                    entries: provider.getLeaderboard(),
-                    isTablet: true,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                // Controls pinned at bottom right
-                const PlaybackControls(),
-              ],
+            child: DriverLeaderboard(
+              entries: provider.getLeaderboard(),
+              isTablet: true,
             ),
           ),
         ],
